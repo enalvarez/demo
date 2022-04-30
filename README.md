@@ -11,7 +11,7 @@ src
 │ ├─┬ java
 │ │ └─┬ es.meep.demo                            → Main package
 │ │   ├─┬ config
-│ │   │ └── MeepDevProperties.java              → Contains the properties of Meep's Dev Server
+│ │   │ └── MeepDevProperties.java              → Contains the properties of Meep's Dev Server (read from application.yml)
 │ │   ├─┬ domain
 │ │   │ ├── StringListConverter.java            → Converter for DB transformations
 │ │   │ └── Vehicle.java                        → Vehicle DB model
@@ -43,7 +43,7 @@ In the project's root folder, run:
 
 
 ## First App run
-To run the application, execute:
+To run the application, execute on project's root folder:
 
 #### Linux
 ```
