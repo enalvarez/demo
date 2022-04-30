@@ -1,0 +1,29 @@
+spring:
+  application.name: Meep's Demo
+  # Enable h2 console access
+  h2.console:
+    # Required for h2-console server
+    enabled: true
+    # Define a custom port instead of a random one
+    port: 8082
+    # Customize the path for the h2-console
+    path: /h2-console
+  # Define the datasource info (in memory db)
+  datasource:
+    url: 'jdbc:h2:mem:temp'
+    username: 'sa'
+    password: ''
+    driverClassName: org.h2.Driver
+  jpa:
+    spring.jpa.database-platform: org.hibernate.dialect.H2Dialect
+
+# Custom properties from Meep's dev server endpoint
+meep:
+  baseUrl: https://apidev.meep.me
+  endpoint: /tripplan/api/v1/routers/lisboa/resources
+  lowerLeftLatLon: 38.711046,-9.160096
+  upperRightLatLon: 38.739429,-9.137115
+  companyZoneIds:
+    - 545
+    - 467
+    - 473
