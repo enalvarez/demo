@@ -11,10 +11,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 /**
  * Contains a scheduled method to invoke Meep's dev server every 30 seconds to update the vehicles info
@@ -52,38 +50,46 @@ public class VehicleService {
         List<Vehicle> vehicles = getVehicles();
         // only if the list is not empty
         if (!vehicles.isEmpty()) {
+            // create a container to store stats about changes
+            Map<String, Integer> stats = new HashMap<>();
             // first, we need to get all existing vehicles to update them
             List<Vehicle> existingVehicles = vehicles.stream()
                     .filter(v -> vehicleRepository.existsById(v.getId()))
                     .collect(Collectors.toList());
-            // if there are new vehicles available, store them
+            // if there are vehicles to be updated
             if (!existingVehicles.isEmpty()) {
-                log.info("Updating info of {} vehicles", existingVehicles.size());
+                // update the stats and update the existing vehicles
+                stats.put("Updated", existingVehicles.size());
                 vehicleRepository.saveAll(existingVehicles);
             }
 
-            // next, we need to get all new available vehicles
-            List<Vehicle> newVehiclesAvailable = vehicles.stream()
-                    .filter(v -> !vehicleRepository.existsById(v.getId()))
-                    .collect(Collectors.toList());
-            // if there are new vehicles available, store them
+            // next, we need to get all new available vehicles, so copy the original list
+            List<Vehicle> newVehiclesAvailable = new ArrayList<>(vehicles);
+            // and remove all existing vehicles from it
+            newVehiclesAvailable.removeAll(existingVehicles);
+            // if there are new vehicles available
             if (!newVehiclesAvailable.isEmpty()) {
-                log.info("There are {} vehicles that are available now", newVehiclesAvailable.size());
+                // update the stats and store the new vehicles
+                stats.put("New", newVehiclesAvailable.size());
                 vehicleRepository.saveAll(newVehiclesAvailable);
             }
 
             // and finally, we need to check vehicles that aren't available right now
-            List<Vehicle> vehiclesUnavailable = vehicleRepository.findAll().stream()
-                    .filter(v -> !vehicles.contains(v))
-                    .collect(Collectors.toList());
-            // if there are new vehicles available, store them
+            List<Vehicle> vehiclesUnavailable = vehicleRepository.getUnavailable(vehicles.parallelStream().map(Vehicle::getId).collect(Collectors.toList()));
+            // if there are unavailable vehicles
             if (!vehiclesUnavailable.isEmpty()) {
-                log.info("There are {} vehicles that are not available now", vehiclesUnavailable.size());
+                // update the stats and remove the unavailable vehicles
+                stats.put("Unavailable", vehiclesUnavailable.size());
                 vehicleRepository.deleteAll(vehiclesUnavailable);
             }
 
-            // trace a final log to show the number of vehicles registered at this time
-            log.info("Now there are {} vehicles available", vehicleRepository.count());
+            // Create a trace including all stats
+            StringBuilder sb = new StringBuilder("\n#############################");
+            sb.append("\nAvailable vehicles: ").append(vehicleRepository.count());
+            stats.forEach((key, value) -> sb.append("\n\t * ").append(key).append(": ").append(value));
+            sb.append("\n#############################");
+            // log the stats
+            log.info(sb.toString());
         } else {
             log.warn("The list of vehicles is empty. Do nothing");
         }
@@ -106,39 +112,9 @@ public class VehicleService {
                 .bodyToFlux(Vehicle.class)
                 .collectList()
                 .onErrorResume(ex -> {
-                    log.warn("Cannot obtain vehicles info server responds with [{}], falling back to a default values", ex.getMessage());
-                    return Mono.just(generateRandomList());
+                    log.warn("Cannot obtain vehicles info server responds with [{}]", ex.getMessage());
+                    return Mono.just(Collections.emptyList());
                 })
                 .block();
-    }
-
-    /**
-     * Generates a random list of vehicles which are included randomly to simulate their availability
-     *
-     * @return a list of vehicles
-     */
-    private List<Vehicle> generateRandomList() {
-        // create a range between 0 and 9 (both inclusive)
-        // and map them to a list of vehicles which are included randomly to simulate their availability
-        return IntStream.rangeClosed(0, 9)
-                .boxed()
-                .filter(i -> include())
-                .map(i -> new Vehicle("PT - LIS - A0014" + i, "13VJ6" + i, -9.139704, 38.73481, "13VJ6" + i, 50L + i, 68, 2, "Askoll", "vehicle_gen_ecooltra", List.of("vehicle_gen_ecooltra"), true, "MOPED", 473L))
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Returns true or false randomly (uses a random function to obtain a number between 1 and 10, and if the number
-     * is even returns true, otherwise returns false)
-     *
-     * @return true or false randomly
-     */
-    private boolean include() {
-        // create the max/min values
-        int max = 10, min = 1;
-        // generate the random num
-        int num = new Random().nextInt(max - min + 1) + min;
-        // check if the number is even to return true or false
-        return num % 2 == 0;
     }
 }
